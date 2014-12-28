@@ -2,7 +2,12 @@ package it.mbolis.hero;
 
 public class Terrain {
 
-	private final Skin skin;
+	public static final Terrain DEFAULT = new Terrain(Skin.DEFAULT);
+	public static void setDefault(Terrain terrain) {
+		DEFAULT.skin = terrain.skin;
+	}
+
+	private Skin skin;
 
 	public Terrain(Skin skin) {
 		this.skin = skin;

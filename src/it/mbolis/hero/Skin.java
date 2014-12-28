@@ -9,14 +9,12 @@ import java.io.IOException;
 
 public abstract class Skin {
 
+	public static final Skin DEFAULT = createStatic(Color.black, 64);
+
 	private final Image image;
 
 	public static Skin createStatic(Color color, int size) {
-		Image image = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
-		Graphics g = image.getGraphics();
-		g.setColor(color);
-		g.fillRect(0, 0, size, size);
-
+		Image image = Images.get(color, size);
 		return new Static(image);
 	}
 	
