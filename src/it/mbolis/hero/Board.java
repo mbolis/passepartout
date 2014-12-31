@@ -7,12 +7,16 @@ import java.awt.Graphics;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
+
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
 public class Board extends JPanel {
 
-	private static final int TILE = 32;
+	private static final int TILE = 8;
 
 	private final Map map;
 
@@ -51,15 +55,15 @@ public class Board extends JPanel {
 				if (tile != null) {
 					tile.getSkin().paint(gt);
 				}
-				gt.setColor(Color.red);
-				gt.drawRect(0, 0, TILE, TILE);
+				//gt.setColor(Color.red);
+				//gt.drawRect(0, 0, TILE, TILE);
 				gt.dispose();
 			}
 		}
 	}
 
 	public static void main(String[] args) {
-		final Board board = new Board(12, 12);
+		final Board board = new Board(48, 48);
 		board.setBackground(Color.black);
 		board.addMouseListener(new MouseAdapter() {
 		
@@ -71,9 +75,9 @@ public class Board extends JPanel {
 					Terrain[][] tiles = board.map.getTiles();
 					Terrain tile = tiles[y][x];
 					if (tile == null) {
-						tiles[y][x] = new Terrain(Skin.createStatic(Color.green, TILE));
+						//tiles[y][x] = new Terrain(Skin.createStatic(Color.green, TILE));
 					} else {
-						tiles[y][x] = null;
+						//tiles[y][x] = null;
 					}
 					board.repaint();
 				}
@@ -81,7 +85,39 @@ public class Board extends JPanel {
 		});
 
 		Terrain[][] tiles = board.map.getTiles();
-		tiles[3][4] = new Terrain(Skin.createStatic(Color.green, TILE));
+		try (BufferedReader mapfile = new BufferedReader(new InputStreamReader(ClassLoader.getSystemResourceAsStream("map.hgm")))) {
+			String line;
+			int y = 0, xmax = 0;
+			while ((line = mapfile.readLine()) != null) {
+				for (int x = 0; x < line.length(); x++) {
+					Terrain tile;
+					switch (line.charAt(x)) {
+					case 'M':
+						tile = new Terrain(Skin.createStatic(Color.gray, TILE));
+						break;
+					case 'h':
+						tile = new Terrain(Skin.createStatic(Color.orange, TILE));
+						break;
+					case ',':
+						tile = new Terrain(Skin.createStatic(Color.green, TILE));
+						break;
+					case 's':
+						tile = new Terrain(Skin.createStatic(Color.yellow, TILE));
+						break;
+					case '~':
+						tile = new Terrain(Skin.createStatic(Color.blue, TILE));
+						break;
+					default:
+						tile = null;
+					}
+					tiles[y][x] = tile;
+				}
+				y++;
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.exit(1);
+		}
 
 		JFrame frame = new JFrame("Hero");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
