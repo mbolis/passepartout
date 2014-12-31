@@ -1,8 +1,14 @@
 package it.mbolis.tilemap;
 
-public class Tile {
+import java.util.LinkedList;
+import java.util.List;
 
+public class Tile {
+	
+	private Terrain terrain;
+	
     private final char icon;
+    private final List<Item> content = new LinkedList<Item>();
 
     public Tile(char icon) {
         this.icon = icon;
@@ -11,6 +17,10 @@ public class Tile {
     public char getIcon() {
         return icon;
     }
+    
+    public List<Item> getContent() {
+		return content;
+	}
 
     @Override
     public String toString() {
