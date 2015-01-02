@@ -21,12 +21,12 @@ public abstract class Mouse extends InputEvent {
 
 	}
 
-	public static abstract class Click extends Mouse {
+	private static abstract class Click extends Mouse {
 
 		public final int clicks;
 
-		public Click(int clicks, Point pos, int modifiers) {
-			super(pos, modifiers);
+		public Click(int clicks, int modifiers) {
+			super(modifiers);
 			this.clicks = clicks;
 		}
 
@@ -36,39 +36,39 @@ public abstract class Mouse extends InputEvent {
 
 		public static class Click extends Mouse.Click {
 
-			public Click(int clicks, Point pos, int modifiers) {
-				super(clicks, pos, modifiers);
+			public Click(int clicks, int modifiers) {
+				super(clicks, modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Left.Click[clicks=" + clicks + ", x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Left.Click[clicks=" + clicks + ", modifiers=" + modifiers + "]";
 			}
 
 		}
 
 		public static class Down extends Mouse {
 
-			public Down(Point pos, int modifiers) {
-				super(pos, modifiers);
+			public Down(int modifiers) {
+				super(modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Left.Down[x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Left.Down[modifiers=" + modifiers + "]";
 			}
 
 		}
 
 		public static class Up extends Mouse {
 
-			public Up(Point pos, int modifiers) {
-				super(pos, modifiers);
+			public Up(int modifiers) {
+				super(modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Left.Up[x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Left.Up[modifiers=" + modifiers + "]";
 			}
 
 		}
@@ -78,38 +78,38 @@ public abstract class Mouse extends InputEvent {
 
 		public static class Click extends Mouse.Click {
 
-			public Click(int clicks, Point pos, int modifiers) {
-				super(clicks, pos, modifiers);
+			public Click(int clicks, int modifiers) {
+				super(clicks, modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Middle.Click[clicks=" + clicks + ", x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Middle.Click[clicks=" + clicks + ", modifiers=" + modifiers + "]";
 			}
 		}
 
 		public static class Down extends Mouse {
 
-			public Down(Point pos, int modifiers) {
-				super(pos, modifiers);
+			public Down(int modifiers) {
+				super(modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Middle.Down[x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Middle.Down[modifiers=" + modifiers + "]";
 			}
 
 		}
 
 		public static class Up extends Mouse {
 
-			public Up(Point pos, int modifiers) {
-				super(pos, modifiers);
+			public Up(int modifiers) {
+				super(modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Middle.Up[x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Middle.Up[modifiers=" + modifiers + "]";
 			}
 
 		}
@@ -119,38 +119,38 @@ public abstract class Mouse extends InputEvent {
 
 		public static class Click extends Mouse.Click {
 
-			public Click(int clicks, Point pos, int modifiers) {
-				super(clicks, pos, modifiers);
+			public Click(int clicks, int modifiers) {
+				super(clicks, modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Right.Click[clicks=" + clicks + ", x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Right.Click[clicks=" + clicks + ", modifiers=" + modifiers + "]";
 			}
 		}
 
 		public static class Down extends Mouse {
 
-			public Down(Point pos, int modifiers) {
-				super(pos, modifiers);
+			public Down(int modifiers) {
+				super(modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Right.Down[x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Right.Down[modifiers=" + modifiers + "]";
 			}
 
 		}
 
 		public static class Up extends Mouse {
 
-			public Up(Point pos, int modifiers) {
-				super(pos, modifiers);
+			public Up(int modifiers) {
+				super(modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Right.Up[x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Right.Up[modifiers=" + modifiers + "]";
 			}
 
 		}
@@ -162,8 +162,8 @@ public abstract class Mouse extends InputEvent {
 
 			public final int button;
 
-			public Click(int button, int clicks, Point pos, int modifiers) {
-				super(clicks, pos, modifiers);
+			public Click(int button, int clicks, int modifiers) {
+				super(clicks, modifiers);
 				this.button = button;
 			}
 
@@ -191,41 +191,40 @@ public abstract class Mouse extends InputEvent {
 
 			@Override
 			public String toString() {
-				return "Button<" + button + ">.Click[clicks=" + clicks + ", x=" + x + ", y=" + y + ", modifiers="
-						+ modifiers + "]";
+				return "Button<" + button + ">.Click[clicks=" + clicks + ", modifiers=" + modifiers + "]";
 			}
 		}
 
 		public static class Down extends Custom {
 
-			public Down(int button, Point pos, int modifiers) {
-				super(button, pos, modifiers);
+			public Down(int button, int modifiers) {
+				super(button, modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Button<" + button + ">.Down[x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Button<" + button + ">.Down[modifiers=" + modifiers + "]";
 			}
 
 		}
 
 		public static class Up extends Custom {
 
-			public Up(int button, Point pos, int modifiers) {
-				super(button, pos, modifiers);
+			public Up(int button, int modifiers) {
+				super(button, modifiers);
 			}
 
 			@Override
 			public String toString() {
-				return "Button<" + button + ">.Up[x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+				return "Button<" + button + ">.Up[modifiers=" + modifiers + "]";
 			}
 
 		}
 
 		public final int button;
 
-		public Custom(int button, Point pos, int modifiers) {
-			super(pos, modifiers);
+		public Custom(int button, int modifiers) {
+			super(modifiers);
 			this.button = button;
 		}
 
@@ -255,13 +254,13 @@ public abstract class Mouse extends InputEvent {
 
 	public static class Drag extends Mouse {
 
-		public Drag(Point pos, int modifiers) {
-			super(pos, modifiers);
+		public Drag(int modifiers) {
+			super(modifiers);
 		}
 
 		@Override
 		public String toString() {
-			return "Drag[x=" + x + ", y=" + y + ", modifiers=" + modifiers + "]";
+			return "Drag[modifiers=" + modifiers + "]";
 		}
 
 	}
@@ -329,12 +328,9 @@ public abstract class Mouse extends InputEvent {
 
 	}
 
-	public final int x, y;
 	public final int modifiers;
 
-	public Mouse(Point pos, int modifiers) {
-		this.x = pos.x;
-		this.y = pos.y;
+	public Mouse(int modifiers) {
 		this.modifiers = modifiers;
 	}
 
@@ -343,8 +339,6 @@ public abstract class Mouse extends InputEvent {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + modifiers;
-		result = prime * result + x;
-		result = prime * result + y;
 		return result;
 	}
 
@@ -358,10 +352,6 @@ public abstract class Mouse extends InputEvent {
 			return false;
 		Mouse other = (Mouse) obj;
 		if (modifiers != other.modifiers)
-			return false;
-		if (x != other.x)
-			return false;
-		if (y != other.y)
 			return false;
 		return true;
 	}

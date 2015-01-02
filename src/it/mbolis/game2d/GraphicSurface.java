@@ -11,9 +11,6 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.awt.image.BufferStrategy;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class GraphicSurface extends Canvas {
 
@@ -25,18 +22,15 @@ public class GraphicSurface extends Canvas {
 	private static GraphicsConfiguration config = GraphicsEnvironment.getLocalGraphicsEnvironment()
 			.getDefaultScreenDevice().getDefaultConfiguration();
 
-	private int fpsPeriod;
-
 	private BufferStrategy strategy;
-
-	private ScheduledExecutorService scheduler;
+	private int fpsPeriod;
+	private Thread loop;
 
 	/**
 	 * Creates a {@code GraphicSurface} with given parent and size.
 	 * 
-	 * Note the surface will be added to the parent and this will be made visible. If the parent is a {@link Window}, it
-	 * will also be packed and a {@link WindowListener} will be added that will stop the rendering loop on <i>window
-	 * closing</i>.
+	 * Note the surface will be added to the parent and this will be made visible. If the parent is a {@link Window}, a
+	 * {@link WindowListener} will be added that will stop the rendering loop on <i>window closing</i>.
 	 * 
 	 */
 	public GraphicSurface(Container parent, int width, int height) {
@@ -46,9 +40,8 @@ public class GraphicSurface extends Canvas {
 	/**
 	 * Creates a {@code GraphicSurface} with given parent, size and FPS.
 	 * 
-	 * Note the surface will be added to the parent and this will be made visible. If the parent is a {@link Window}, it
-	 * will also be packed and a {@link WindowListener} will be added that will stop the rendering loop on <i>window
-	 * closing</i>.
+	 * Note the surface will be added to the parent and this will be made visible. If the parent is a {@link Window}, a
+	 * {@link WindowListener} will be added that will stop the rendering loop on <i>window closing</i>.
 	 * 
 	 */
 	public GraphicSurface(Container parent, int width, int height, int fps) {
@@ -59,7 +52,6 @@ public class GraphicSurface extends Canvas {
 		parent.add(this);
 		if (parent instanceof Window) {
 			Window window = (Window) parent;
-			window.pack();
 			window.addWindowListener(new WindowAdapter() {
 
 				@Override
@@ -78,40 +70,61 @@ public class GraphicSurface extends Canvas {
 		this.fpsPeriod = (int) (1.0 / fps * 1000);
 	}
 
-	public synchronized void start(final SurfaceDrawer sd) {
-		if (scheduler == null || scheduler.isShutdown()) {
-			scheduler = Executors.newScheduledThreadPool(1);
+	private class RenderLoop extends Thread {
 
-			Runnable command = new Runnable() {
+		final SurfaceDrawer sd;
 
-				@Override
-				public void run() {
-					sd.update();
+		RenderLoop(SurfaceDrawer sd) {
+			this.sd = sd;
+		}
 
-					do {
-						Graphics2D buffer;
-						try {
-							buffer = (Graphics2D) strategy.getDrawGraphics();
-							sd.draw(buffer);
-							buffer.dispose();
+		@Override
+		public void run() {
+			while (!isInterrupted()) {
+				long frameStart = System.currentTimeMillis();
 
-							strategy.show();
-							toolkit.sync();
+				sd.update();
 
-						} catch (NullPointerException | IllegalStateException e) {
-							break;
-						}
-					} while (strategy.contentsLost());
+				do {
+					Graphics2D buffer;
+					try {
+						buffer = (Graphics2D) strategy.getDrawGraphics();
+						sd.draw(buffer);
+						buffer.dispose();
+
+						strategy.show();
+						toolkit.sync();
+
+					} catch (NullPointerException | IllegalStateException e) {
+						break;
+					}
+				} while (strategy.contentsLost());
+
+				long frameEnd = System.currentTimeMillis();
+
+				long frameTime = frameEnd - frameStart;
+				long frameSleep = fpsPeriod - frameTime;
+				if (frameSleep > 0) {
+					try {
+						Thread.sleep(frameSleep);
+					} catch (InterruptedException e) {
+						break;
+					}
 				}
-			};
+			}
+		}
+	}
 
-			scheduler.scheduleAtFixedRate(command, 0, fpsPeriod, TimeUnit.MILLISECONDS);
+	public synchronized void start(final SurfaceDrawer sd) {
+		if (loop == null || loop.isInterrupted()) {
+			loop = new RenderLoop(sd);
+			loop.start();
 		}
 	}
 
 	public synchronized void stop() {
-		scheduler.shutdownNow();
-		scheduler = null;
+		loop.interrupt();
+		loop = null;
 	}
 
 }

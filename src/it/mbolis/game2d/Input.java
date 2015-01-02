@@ -17,6 +17,8 @@ import it.mbolis.game2d.event.Mouse.Right;
 import it.mbolis.game2d.event.Mouse.Wheel;
 
 import java.awt.AWTException;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.FlowLayout;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -54,6 +56,21 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 		window.addMouseMotionListener(this);
 		window.addMouseWheelListener(this);
 		window.addKeyListener(this);
+
+		listenToComponents(window, new InputDispatcher(window));
+	}
+
+	private void listenToComponents(Container container, InputDispatcher dispatcher) {
+		for (Component c : container.getComponents()) {
+			c.addMouseListener(this);
+			c.addMouseMotionListener(this);
+			c.addMouseWheelListener(this);
+			c.addKeyListener(this);
+
+			if (c instanceof Container) {
+				listenToComponents((Container) c, dispatcher);
+			}
+		}
 	}
 
 	public List<InputEvent> getEvents() {
@@ -66,7 +83,7 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 		return currentEvents;
 	}
 
-	public Mouse.Pointer getMousePointer() {
+	public synchronized Mouse.Pointer getMousePointer() {
 		return mousePointer;
 	}
 
@@ -117,13 +134,13 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 
 		InputEvent event;
 		if (isLeftMouseButton(e)) {
-			event = new Left.Click(e.getClickCount(), mousePointer.position, e.getModifiersEx());
+			event = new Left.Click(e.getClickCount(), e.getModifiersEx());
 		} else if (isMiddleMouseButton(e)) {
-			event = new Middle.Click(e.getClickCount(), mousePointer.position, e.getModifiersEx());
+			event = new Middle.Click(e.getClickCount(), e.getModifiersEx());
 		} else if (isRightMouseButton(e)) {
-			event = new Right.Click(e.getClickCount(), mousePointer.position, e.getModifiersEx());
+			event = new Right.Click(e.getClickCount(), e.getModifiersEx());
 		} else {
-			event = new Custom.Click(e.getButton(), e.getClickCount(), mousePointer.position, e.getModifiersEx());
+			event = new Custom.Click(e.getButton(), e.getClickCount(), e.getModifiersEx());
 		}
 
 		synchronized (events) {
@@ -137,13 +154,13 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 
 		InputEvent event;
 		if (isLeftMouseButton(e)) {
-			event = new Left.Down(mousePointer.position, e.getModifiersEx());
+			event = new Left.Down(e.getModifiersEx());
 		} else if (isMiddleMouseButton(e)) {
-			event = new Middle.Down(mousePointer.position, e.getModifiersEx());
+			event = new Middle.Down(e.getModifiersEx());
 		} else if (isRightMouseButton(e)) {
-			event = new Right.Down(mousePointer.position, e.getModifiersEx());
+			event = new Right.Down(e.getModifiersEx());
 		} else {
-			event = new Custom.Down(e.getButton(), mousePointer.position, e.getModifiersEx());
+			event = new Custom.Down(e.getButton(), e.getModifiersEx());
 		}
 
 		synchronized (events) {
@@ -157,13 +174,13 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 
 		InputEvent event;
 		if (isLeftMouseButton(e)) {
-			event = new Left.Up(mousePointer.position, e.getModifiersEx());
+			event = new Left.Up(e.getModifiersEx());
 		} else if (isMiddleMouseButton(e)) {
-			event = new Middle.Up(mousePointer.position, e.getModifiersEx());
+			event = new Middle.Up(e.getModifiersEx());
 		} else if (isRightMouseButton(e)) {
-			event = new Right.Up(mousePointer.position, e.getModifiersEx());
+			event = new Right.Up(e.getModifiersEx());
 		} else {
-			event = new Custom.Up(e.getButton(), mousePointer.position, e.getModifiersEx());
+			event = new Custom.Up(e.getButton(), e.getModifiersEx());
 		}
 
 		synchronized (events) {
@@ -197,12 +214,11 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		e.consume();
-		Point position = e.getPoint();
 		int modifiers = e.getModifiersEx();
 		synchronized (events) {
-			events.add(new Mouse.Drag(position, modifiers));
+			events.add(new Mouse.Drag(modifiers));
 		}
-		mousePointer = new Mouse.Pointer(position, modifiers);
+		mousePointer = new Mouse.Pointer(e.getPoint(), modifiers);
 	}
 
 	@Override
