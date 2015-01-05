@@ -1,63 +1,160 @@
 package it.mbolis.game2d;
 
 import static java.awt.MouseInfo.getPointerInfo;
+import static java.awt.event.KeyEvent.getKeyText;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static javax.swing.SwingUtilities.isLeftMouseButton;
-import static javax.swing.SwingUtilities.isMiddleMouseButton;
-import static javax.swing.SwingUtilities.isRightMouseButton;
 import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
-import it.mbolis.game2d.event.InputEvent;
-import it.mbolis.game2d.event.Key;
-import it.mbolis.game2d.event.Mouse;
-import it.mbolis.game2d.event.Mouse.Custom;
-import it.mbolis.game2d.event.Mouse.Left;
-import it.mbolis.game2d.event.Mouse.Middle;
-import it.mbolis.game2d.event.Mouse.Right;
-import it.mbolis.game2d.event.Mouse.Wheel;
 
 import java.awt.AWTException;
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.FlowLayout;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.KeyEventDispatcher;
+import java.awt.KeyboardFocusManager;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.Robot;
-import java.awt.Window;
 import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-public class Input implements MouseListener, MouseMotionListener, MouseWheelListener, KeyListener {
+public class Input implements MouseListener, MouseMotionListener, MouseWheelListener, KeyEventDispatcher {
 
-	private List<InputEvent> events = new LinkedList<>();
-	private Mouse.Pointer mousePointer;
+	public static class Keyboard {
 
-	public Input(Window window) {
+		public static final int SHIFT = 1 << KeyEvent.VK_SHIFT - 1;
+		public static final int CTRL = 1 << KeyEvent.VK_CONTROL - 1;
+		public static final int ALT = 1 << KeyEvent.VK_ALT - 1;
+
+		public int modifiers;
+		public Set<Integer> keys = new HashSet<>();
+		public List<Integer> keyPresses = new ArrayList<>();
+
+		private Keyboard() {
+		}
+
+		@Override
+		public String toString() {
+			StringBuilder sb = new StringBuilder();
+			if ((modifiers & SHIFT) > 0) {
+				sb.append("Shift");
+			}
+			if ((modifiers & CTRL) > 0) {
+				if (sb.length() > 0) {
+					sb.append("+");
+				}
+				sb.append("Ctrl");
+			}
+			if ((modifiers & ALT) > 0) {
+				if (sb.length() > 0) {
+					sb.append("+");
+				}
+				sb.append("Alt");
+			}
+			for (int k : keys) {
+				if (sb.length() > 0) {
+					sb.append("+");
+				}
+				sb.append(getKeyText(k));
+				if (keyPresses.contains(k)) {
+					sb.append('*');
+				}
+			}
+			return sb.append('\n').toString();
+		}
+	}
+
+	public static class Mouse {
+
+		public static final int LEFT = 0x1;
+		public static final int MIDDLE = 0x2;
+		public static final int RIGHT = 0x4;
+
+		public int buttons;
+		public Point position;
+		public List<Gesture> gestures = new ArrayList<>();
+
+		private Mouse() {
+		}
+
+		@Override
+		public String toString() {
+			return String.format("[%s%s%s] (%d,%d) %n%s%n", (buttons & LEFT) > 0 ? 'x' : ' ',
+					(buttons & MIDDLE) > 0 ? 'x' : ' ', (buttons & RIGHT) > 0 ? 'x' : ' ', position.x, position.y,
+					gestures);
+		}
+	}
+
+	public static class InputState {
+
+		public final Keyboard keyboard = new Keyboard();
+		public final Mouse mouse = new Mouse();
+
+		private InputState() {
+		}
+
+		public InputState copy() {
+			InputState newState = new InputState();
+
+			synchronized (keyboard) {
+				newState.keyboard.modifiers = keyboard.modifiers;
+				newState.keyboard.keys = new HashSet<>(keyboard.keys);
+				newState.keyboard.keyPresses = keyboard.keyPresses;
+				keyboard.keyPresses = new ArrayList<>();
+			}
+
+			synchronized (mouse) {
+				newState.mouse.buttons = mouse.buttons;
+				newState.mouse.position = new Point(mouse.position);
+				newState.mouse.gestures = mouse.gestures;
+				mouse.gestures = new ArrayList<>();
+			}
+
+			return newState;
+		}
+
+		@Override
+		public String toString() {
+			return keyboard + "\n" + mouse;
+		}
+	}
+
+	private InputState state = new InputState();
+
+	private final Set<Integer> modifierKeys = new HashSet<>();
+
+	public Input(Component component) {
 
 		Point mousePosition = getPointerInfo().getLocation();
-		Rectangle windowBounds = window.getBounds();
+		Point location = component.getLocationOnScreen();
+		Rectangle bounds = component.getBounds();
+		bounds.translate(location.x, location.y);
 
-		mousePosition.x = max(min(mousePosition.x - windowBounds.x, windowBounds.width), 0);
-		mousePosition.y = max(min(mousePosition.y - windowBounds.y, windowBounds.height), 0);
+		mousePosition.x = max(min(mousePosition.x - bounds.x, bounds.width), 0);
+		mousePosition.y = max(min(mousePosition.y - bounds.y, bounds.height), 0);
 
-		mousePointer = new Mouse.Pointer(mousePosition, 0);
+		state.mouse.position = mousePosition;
 
-		window.addMouseListener(this);
-		window.addMouseMotionListener(this);
-		window.addMouseWheelListener(this);
-		window.addKeyListener(this);
+		component.addMouseListener(this);
+		component.addMouseMotionListener(this);
+		component.addMouseWheelListener(this);
 
-		listenToComponents(window, new InputDispatcher(window));
+		KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(this);
+
+		if (component instanceof Container) {
+			listenToComponents((Container) component, new InputDispatcher(component));
+		}
 	}
 
 	private void listenToComponents(Container container, InputDispatcher dispatcher) {
@@ -65,7 +162,6 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 			c.addMouseListener(this);
 			c.addMouseMotionListener(this);
 			c.addMouseWheelListener(this);
-			c.addKeyListener(this);
 
 			if (c instanceof Container) {
 				listenToComponents((Container) c, dispatcher);
@@ -73,118 +169,91 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 		}
 	}
 
-	public List<InputEvent> getEvents() {
-		List<InputEvent> currentEvents;
-		LinkedList<InputEvent> newEvents = new LinkedList<>();
-		synchronized (events) {
-			currentEvents = events;
-			events = newEvents;
+	public InputState getState() {
+		return state.copy();
+	}
+
+	public void setModifierKeys(int... modifiers) {
+		modifierKeys.clear();
+		for (Integer m : modifiers) {
+			modifierKeys.add(m);
 		}
-		return currentEvents;
-	}
 
-	public synchronized Mouse.Pointer getMousePointer() {
-		return mousePointer;
-	}
-
-	@Override
-	public void keyTyped(KeyEvent e) {
-		e.consume();
-	}
-
-	@Override
-	public void keyPressed(KeyEvent e) {
-		e.consume();
-		int keyCode = e.getKeyCode();
-		switch (keyCode) {
-		case KeyEvent.VK_SHIFT:
-		case KeyEvent.VK_CONTROL:
-		case KeyEvent.VK_META:
-		case KeyEvent.VK_ALT:
-		case KeyEvent.VK_ALT_GRAPH:
-			return;
-		default:
-			synchronized (events) {
-				events.add(new Key.Down(keyCode, e.getModifiersEx()));
+		synchronized (state.keyboard) {
+			Set<Integer> newKeys = new HashSet<>();
+			for (int key : state.keyboard.keys) {
+				if (modifierKeys.contains(key)) {
+					state.keyboard.modifiers |= 1 << key - 1;
+				} else {
+					newKeys.add(key);
+				}
 			}
+			state.keyboard.keys = newKeys;
 		}
 	}
 
 	@Override
-	public void keyReleased(KeyEvent e) {
+	public boolean dispatchKeyEvent(KeyEvent e) {
 		e.consume();
-		int keyCode = e.getKeyCode();
-		switch (keyCode) {
-		case KeyEvent.VK_SHIFT:
-		case KeyEvent.VK_CONTROL:
-		case KeyEvent.VK_META:
-		case KeyEvent.VK_ALT:
-		case KeyEvent.VK_ALT_GRAPH:
-			return;
-		default:
-			synchronized (events) {
-				events.add(new Key.Up(keyCode, e.getModifiersEx()));
+
+		int keyCode;
+		switch (e.getID()) {
+		case KeyEvent.KEY_PRESSED:
+			keyCode = e.getKeyCode();
+			if (modifierKeys.contains(keyCode)) {
+				synchronized (state.keyboard) {
+					state.keyboard.modifiers |= 1 << keyCode - 1;
+				}
+			} else {
+				synchronized (state.keyboard) {
+					state.keyboard.keys.add(keyCode);
+					state.keyboard.keyPresses.add(keyCode);
+				}
 			}
+			break;
+		case KeyEvent.KEY_RELEASED:
+			keyCode = e.getKeyCode();
+			if (modifierKeys.contains(keyCode)) {
+				synchronized (state.keyboard) {
+					state.keyboard.modifiers ^= 1 << keyCode - 1;
+				}
+			} else {
+				synchronized (state.keyboard) {
+					state.keyboard.keys.remove(keyCode);
+				}
+			}
+			break;
+		default:
 		}
+
+		return true;
 	}
 
 	@Override
 	public void mouseClicked(MouseEvent e) {
 		e.consume();
-
-		InputEvent event;
-		if (isLeftMouseButton(e)) {
-			event = new Left.Click(e.getClickCount(), e.getModifiersEx());
-		} else if (isMiddleMouseButton(e)) {
-			event = new Middle.Click(e.getClickCount(), e.getModifiersEx());
-		} else if (isRightMouseButton(e)) {
-			event = new Right.Click(e.getClickCount(), e.getModifiersEx());
-		} else {
-			event = new Custom.Click(e.getButton(), e.getClickCount(), e.getModifiersEx());
-		}
-
-		synchronized (events) {
-			events.add(event);
+		int button = e.getButton();
+		int clicks = e.getClickCount();
+		synchronized (state.mouse) {
+			state.mouse.gestures.add(new Gesture.Click(1 << button - 1, clicks));
 		}
 	}
 
 	@Override
 	public void mousePressed(MouseEvent e) {
 		e.consume();
-
-		InputEvent event;
-		if (isLeftMouseButton(e)) {
-			event = new Left.Down(e.getModifiersEx());
-		} else if (isMiddleMouseButton(e)) {
-			event = new Middle.Down(e.getModifiersEx());
-		} else if (isRightMouseButton(e)) {
-			event = new Right.Down(e.getModifiersEx());
-		} else {
-			event = new Custom.Down(e.getButton(), e.getModifiersEx());
-		}
-
-		synchronized (events) {
-			events.add(event);
+		int button = e.getButton();
+		synchronized (state.mouse) {
+			state.mouse.buttons |= 1 << button - 1;
 		}
 	}
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
 		e.consume();
-
-		InputEvent event;
-		if (isLeftMouseButton(e)) {
-			event = new Left.Up(e.getModifiersEx());
-		} else if (isMiddleMouseButton(e)) {
-			event = new Middle.Up(e.getModifiersEx());
-		} else if (isRightMouseButton(e)) {
-			event = new Right.Up(e.getModifiersEx());
-		} else {
-			event = new Custom.Up(e.getButton(), e.getModifiersEx());
-		}
-
-		synchronized (events) {
-			events.add(event);
+		int button = e.getButton();
+		synchronized (state.mouse) {
+			state.mouse.buttons ^= 1 << button - 1;
 		}
 	}
 
@@ -200,59 +269,84 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 	public void mouseWheelMoved(MouseWheelEvent e) {
 		e.consume();
 		int rotation = e.getWheelRotation();
-		if (rotation < 0) {
-			synchronized (events) {
-				events.add(new Wheel.Up(-rotation, e.getModifiersEx()));
-			}
-		} else {
-			synchronized (events) {
-				events.add(new Wheel.Down(rotation, e.getModifiersEx()));
-			}
+		synchronized (state.mouse) {
+			state.mouse.gestures.add(new Gesture.Wheel(rotation));
 		}
 	}
 
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		e.consume();
-		int modifiers = e.getModifiersEx();
-		synchronized (events) {
-			events.add(new Mouse.Drag(modifiers));
+		Point newLocation = e.getPoint();
+		synchronized (state.mouse) {
+			state.mouse.gestures.add(new Gesture.Drag(state.mouse.position, newLocation));
+			state.mouse.position = newLocation;
 		}
-		mousePointer = new Mouse.Pointer(e.getPoint(), modifiers);
 	}
 
 	@Override
 	public void mouseMoved(MouseEvent e) {
 		e.consume();
-		mousePointer = new Mouse.Pointer(e.getPoint(), e.getModifiersEx());
+		Point position = e.getPoint();
+		synchronized (state.mouse) {
+			state.mouse.position = position;
+		}
 	}
 
 	public static void main(String[] args) throws AWTException, InterruptedException {
 		JFrame frame = new JFrame();
 		frame.setDefaultCloseOperation(EXIT_ON_CLOSE);
 
-		JPanel panel = new JPanel(new FlowLayout());
-		panel.setSize(200, 200);
+		class InfoPanel extends JPanel {
+
+			private static final long serialVersionUID = 1L;
+
+			InputState state;
+
+			@Override
+			public Dimension getPreferredSize() {
+				return new Dimension(200, 200);
+			}
+
+			@Override
+			public void paintComponent(Graphics g) {
+				super.paintComponent(g);
+				if (state != null) {
+					String[] stateLines = state.toString().split("\n");
+					for (int i = 0; i < stateLines.length; i++) {
+						g.drawString(stateLines[i], 5, 16 + 16 * i);
+					}
+				}
+			}
+		}
+
+		InfoPanel panel = new InfoPanel();
 		frame.add(panel);
 
-		frame.setSize(200, 200);
+		frame.pack();
 		frame.setVisible(true);
 
-		final Input input = new Input(frame);
+		final Input input = new Input(panel);
+		input.setModifierKeys(Keyboard.SHIFT, Keyboard.CTRL, Keyboard.ALT);
 
-		Thread.sleep(100);
+		new Thread() {
 
-		Robot robot = new Robot();
-		robot.mouseMove(frame.getLocation().x + 100, frame.getLocation().y + 100);
-		robot.mousePress(KeyEvent.BUTTON1_DOWN_MASK);
-		robot.mouseRelease(KeyEvent.BUTTON1_DOWN_MASK);
+			@Override
+			public void run() {
+				while (!isInterrupted()) {
 
-		robot.keyPress(KeyEvent.VK_0);
-		robot.keyRelease(KeyEvent.VK_0);
+					panel.state = input.getState();
+					panel.repaint();
 
-		for (int i = 0; i < 10; i++) {
-			Thread.sleep(10);
-			System.out.println(input.getEvents());
-		}
+					try {
+						sleep(500);
+					} catch (InterruptedException e) {
+						break;
+					}
+				}
+			};
+
+		}.start();
 	}
+
 }

@@ -1,7 +1,9 @@
 package it.mbolis.hero;
 
+import static java.lang.Integer.bitCount;
 import it.mbolis.game2d.GraphicSurface;
 import it.mbolis.game2d.Input;
+import it.mbolis.game2d.Input.InputState;
 import it.mbolis.game2d.SurfaceDrawer;
 import it.mbolis.game2d.event.InputEvent;
 import it.mbolis.game2d.event.Key;
@@ -25,6 +27,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.Callable;
 
 import javax.swing.JFrame;
@@ -61,6 +65,66 @@ public class Board extends JFrame {
 		this.tileSize = tileSize;
 	}
 
+	public static class KeyCombination implements Comparable<KeyCombination> {
+
+		public final int keyCode;
+		public final int modifiers;
+
+		public KeyCombination(int keyCode, int modifiers) {
+			this.keyCode = keyCode;
+			this.modifiers = modifiers;
+		}
+
+		@Override
+		public int compareTo(KeyCombination that) {
+			int codeCompare = this.keyCode - that.keyCode;
+			return codeCompare != 0 ? codeCompare : bitCount(this.modifiers) - bitCount(that.modifiers);
+		}
+
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + keyCode;
+			result = prime * result + modifiers;
+			return result;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			KeyCombination other = (KeyCombination) obj;
+			if (keyCode != other.keyCode)
+				return false;
+			if (modifiers != other.modifiers)
+				return false;
+			return true;
+		}
+
+	}
+
+	public static class MouseCombination implements Comparable<MouseCombination> {
+
+		public final int buttons;
+		public final int modifiers;
+
+		public MouseCombination(int buttons, int modifiers) {
+			this.buttons = buttons;
+			this.modifiers = modifiers;
+		}
+
+		@Override
+		public int compareTo(MouseCombination that) {
+			int btnCompare = this.buttons - that.buttons;
+			return btnCompare != 0 ? btnCompare : bitCount(this.modifiers) - bitCount(that.modifiers);
+		}
+	}
+
 	public void start() {
 		surface.start(new SurfaceDrawer() {
 
@@ -72,28 +136,50 @@ public class Board extends JFrame {
 				toRedraw.add(area);
 			}
 
-			java.util.Map<InputEvent, Callable<Rectangle>> actions = new HashMap<>();
+			java.util.Map<Integer, SortedMap<KeyCombination, Integer>> keyCombinations = new HashMap<>();
+			java.util.Map<Integer, SortedMap<MouseCombination, Integer>> mouseCombinations = new HashMap<>();
+			java.util.Map<Integer, Callable<Rectangle>> actions = new HashMap<>();
 			{
-				actions.put(new Key.Down(KeyEvent.VK_UP, 0), () -> {
+				SortedMap<KeyCombination, Integer> combinationSet = new TreeMap<>();
+				combinationSet.put(new KeyCombination(KeyEvent.VK_UP, 0), 0x01);
+				keyCombinations.put(KeyEvent.VK_UP, combinationSet);
+				actions.put(0x01, () -> {
 					offset.setLocation(offset.x, Math.max(offset.y - 1, 0));
 					return area;
 				});
-				actions.put(new Key.Down(KeyEvent.VK_DOWN, 0), () -> {
+
+				combinationSet = new TreeMap<>();
+				combinationSet.put(new KeyCombination(KeyEvent.VK_DOWN, 0), 0x02);
+				keyCombinations.put(KeyEvent.VK_DOWN, combinationSet);
+				actions.put(0x02, () -> {
 					offset.setLocation(offset.x, Math.min(offset.y + 1, map.width - offset.width));
 					return area;
 				});
-				actions.put(new Key.Down(KeyEvent.VK_LEFT, 0), () -> {
+
+				combinationSet = new TreeMap<>();
+				combinationSet.put(new KeyCombination(KeyEvent.VK_LEFT, 0), 0x03);
+				keyCombinations.put(KeyEvent.VK_LEFT, combinationSet);
+				actions.put(0x03, () -> {
 					offset.setLocation(Math.max(offset.x - 1, 0), offset.y);
 					return area;
 				});
-				actions.put(new Key.Down(KeyEvent.VK_RIGHT, 0), () -> {
+
+				combinationSet = new TreeMap<>();
+				combinationSet.put(new KeyCombination(KeyEvent.VK_RIGHT, 0), 0x04);
+				keyCombinations.put(KeyEvent.VK_RIGHT, combinationSet);
+				actions.put(0x04, () -> {
 					offset.setLocation(Math.min(offset.x + 1, map.height - offset.height), offset.y);
 					return area;
 				});
-				actions.put(new Mouse.Left.Down(KeyEvent.BUTTON1_DOWN_MASK), () -> {
+
+				SortedMap<MouseCombination, Integer> mouseSet = new TreeMap<>();
+				mouseSet.put(new MouseCombination(Input.Mouse.LEFT, 0), 0x5);
+				mouseCombinations.put(Input.Mouse.LEFT, mouseSet);
+				actions.put(0x5, () -> {
 					mouseDown = true;
 					return new Rectangle((mousex - 1) * tileSize, (mousey - 1) * tileSize, 3 * tileSize, 3 * tileSize);
 				});
+				
 				actions.put(new Mouse.Left.Up(0), () -> {
 					mouseDown = false;
 					return new Rectangle((mousex - 1) * tileSize, (mousey - 1) * tileSize, 3 * tileSize, 3 * tileSize);
@@ -105,7 +191,10 @@ public class Board extends JFrame {
 
 			@Override
 			public void update() {
-				List<InputEvent> events = input.getEvents();
+
+				InputState state = input.getState();
+
+				List<InputEvent> events = input();
 				for (InputEvent e : events) {
 					Callable<Rectangle> action = actions.get(e);
 					if (action != null) {
