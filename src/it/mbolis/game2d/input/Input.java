@@ -1,4 +1,4 @@
-package it.mbolis.game2d;
+package it.mbolis.game2d.input;
 
 import static java.awt.MouseInfo.getPointerInfo;
 import static java.awt.event.KeyEvent.getKeyText;
@@ -81,8 +81,9 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 		public static final int MIDDLE = 0x2;
 		public static final int RIGHT = 0x4;
 
-		public int buttons;
 		public Point position;
+		public int buttons;
+		public List<Integer> buttonPresses = new ArrayList<>();
 		public List<Gesture> gestures = new ArrayList<>();
 
 		private Mouse() {
@@ -107,18 +108,25 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 		public InputState copy() {
 			InputState newState = new InputState();
 
+			Keyboard newKeyboard = newState.keyboard;
+			ArrayList<Integer> newKeyPresses = new ArrayList<>();
 			synchronized (keyboard) {
-				newState.keyboard.modifiers = keyboard.modifiers;
-				newState.keyboard.keys = new HashSet<>(keyboard.keys);
-				newState.keyboard.keyPresses = keyboard.keyPresses;
-				keyboard.keyPresses = new ArrayList<>();
+				newKeyboard.modifiers = keyboard.modifiers;
+				newKeyboard.keys = new HashSet<>(keyboard.keys);
+				newKeyboard.keyPresses = keyboard.keyPresses;
+				keyboard.keyPresses = newKeyPresses;
 			}
 
+			Mouse newMouse = newState.mouse;
+			ArrayList<Integer> newButtonPresses = new ArrayList<>();
+			ArrayList<Gesture> newGestures = new ArrayList<>();
 			synchronized (mouse) {
-				newState.mouse.buttons = mouse.buttons;
-				newState.mouse.position = new Point(mouse.position);
-				newState.mouse.gestures = mouse.gestures;
-				mouse.gestures = new ArrayList<>();
+				newMouse.position = new Point(mouse.position);
+				newMouse.buttons = mouse.buttons;
+				newMouse.buttonPresses = mouse.buttonPresses;
+				mouse.buttonPresses = newButtonPresses;
+				newMouse.gestures = mouse.gestures;
+				mouse.gestures = newGestures;
 			}
 
 			return newState;
@@ -201,8 +209,9 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 		case KeyEvent.KEY_PRESSED:
 			keyCode = e.getKeyCode();
 			if (modifierKeys.contains(keyCode)) {
+				int mod = 1 << keyCode - 1;
 				synchronized (state.keyboard) {
-					state.keyboard.modifiers |= 1 << keyCode - 1;
+					state.keyboard.modifiers |= mod;
 				}
 			} else {
 				synchronized (state.keyboard) {
@@ -214,8 +223,9 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 		case KeyEvent.KEY_RELEASED:
 			keyCode = e.getKeyCode();
 			if (modifierKeys.contains(keyCode)) {
+				int mod = 1 << keyCode - 1;
 				synchronized (state.keyboard) {
-					state.keyboard.modifiers ^= 1 << keyCode - 1;
+					state.keyboard.modifiers ^= mod;
 				}
 			} else {
 				synchronized (state.keyboard) {
@@ -232,28 +242,30 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 	@Override
 	public void mouseClicked(MouseEvent e) {
 		e.consume();
-		int button = e.getButton();
+		int button = 1 << e.getButton() - 1;
 		int clicks = e.getClickCount();
+		Gesture.Click gesture = new Gesture.Click(button, clicks);
 		synchronized (state.mouse) {
-			state.mouse.gestures.add(new Gesture.Click(1 << button - 1, clicks));
+			state.mouse.gestures.add(gesture);
 		}
 	}
 
 	@Override
 	public void mousePressed(MouseEvent e) {
 		e.consume();
-		int button = e.getButton();
+		int button = 1 << e.getButton() - 1;
 		synchronized (state.mouse) {
-			state.mouse.buttons |= 1 << button - 1;
+			state.mouse.buttonPresses.add(button);
+			state.mouse.buttons |= button;
 		}
 	}
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
 		e.consume();
-		int button = e.getButton();
+		int button = 1 << e.getButton() - 1;
 		synchronized (state.mouse) {
-			state.mouse.buttons ^= 1 << button - 1;
+			state.mouse.buttons ^= button;
 		}
 	}
 
@@ -269,8 +281,9 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 	public void mouseWheelMoved(MouseWheelEvent e) {
 		e.consume();
 		int rotation = e.getWheelRotation();
+		Gesture.Wheel gesture = new Gesture.Wheel(rotation);
 		synchronized (state.mouse) {
-			state.mouse.gestures.add(new Gesture.Wheel(rotation));
+			state.mouse.gestures.add(gesture);
 		}
 	}
 
@@ -278,8 +291,9 @@ public class Input implements MouseListener, MouseMotionListener, MouseWheelList
 	public void mouseDragged(MouseEvent e) {
 		e.consume();
 		Point newLocation = e.getPoint();
+		Gesture.Drag gesture = new Gesture.Drag(state.mouse.position, newLocation);
 		synchronized (state.mouse) {
-			state.mouse.gestures.add(new Gesture.Drag(state.mouse.position, newLocation));
+			state.mouse.gestures.add(gesture);
 			state.mouse.position = newLocation;
 		}
 	}

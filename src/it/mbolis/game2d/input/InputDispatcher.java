@@ -1,4 +1,4 @@
-package it.mbolis.game2d;
+package it.mbolis.game2d.input;
 
 import java.awt.Component;
 import java.awt.event.KeyEvent;

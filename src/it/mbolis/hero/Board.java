@@ -1,13 +1,13 @@
 package it.mbolis.hero;
 
 import static java.lang.Integer.bitCount;
+import static java.lang.Integer.numberOfLeadingZeros;
+import static java.lang.Math.min;
+import static java.lang.Math.pow;
 import it.mbolis.game2d.GraphicSurface;
-import it.mbolis.game2d.Input;
-import it.mbolis.game2d.Input.InputState;
+import it.mbolis.game2d.input.Input;
+import it.mbolis.game2d.input.Input.InputState;
 import it.mbolis.game2d.SurfaceDrawer;
-import it.mbolis.game2d.event.InputEvent;
-import it.mbolis.game2d.event.Key;
-import it.mbolis.game2d.event.Mouse;
 
 import java.awt.Color;
 import java.awt.Cursor;
@@ -26,7 +26,6 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
@@ -168,7 +167,7 @@ public class Board extends JFrame {
 				combinationSet.put(new KeyCombination(KeyEvent.VK_RIGHT, 0), 0x04);
 				keyCombinations.put(KeyEvent.VK_RIGHT, combinationSet);
 				actions.put(0x04, () -> {
-					offset.setLocation(Math.min(offset.x + 1, map.height - offset.height), offset.y);
+					offset.setLocation(min(offset.x + 1, map.height - offset.height), offset.y);
 					return area;
 				});
 
@@ -179,14 +178,14 @@ public class Board extends JFrame {
 					mouseDown = true;
 					return new Rectangle((mousex - 1) * tileSize, (mousey - 1) * tileSize, 3 * tileSize, 3 * tileSize);
 				});
-				
-				actions.put(new Mouse.Left.Up(0), () -> {
-					mouseDown = false;
-					return new Rectangle((mousex - 1) * tileSize, (mousey - 1) * tileSize, 3 * tileSize, 3 * tileSize);
-				});
-				actions.put(new Mouse.Drag(KeyEvent.BUTTON1_DOWN_MASK), () -> {
-					return new Rectangle((mousex - 1) * tileSize, (mousey - 1) * tileSize, 3 * tileSize, 3 * tileSize);
-				});
+
+				// actions.put(new Mouse.Left.Up(0), () -> {
+				// mouseDown = false;
+				// return new Rectangle((mousex - 1) * tileSize, (mousey - 1) * tileSize, 3 * tileSize, 3 * tileSize);
+				// });
+				// actions.put(new Mouse.Drag(KeyEvent.BUTTON1_DOWN_MASK), () -> {
+				// return new Rectangle((mousex - 1) * tileSize, (mousey - 1) * tileSize, 3 * tileSize, 3 * tileSize);
+				// });
 			}
 
 			@Override
@@ -194,20 +193,49 @@ public class Board extends JFrame {
 
 				InputState state = input.getState();
 
-				List<InputEvent> events = input();
-				for (InputEvent e : events) {
-					Callable<Rectangle> action = actions.get(e);
-					if (action != null) {
-						try {
-							toRedraw.add(action.call());
-						} catch (Exception exc) {
+				int modifiers = state.keyboard.modifiers;
+
+				for (Integer k : state.keyboard.keyPresses) {
+					SortedMap<KeyCombination, Integer> kcs = keyCombinations.get(k);
+					for (KeyCombination kc : kcs.keySet()) {
+						if ((kc.modifiers & modifiers) == modifiers) {
+							Integer actionCode = kcs.get(kc);
+							Callable<Rectangle> action = actions.get(actionCode);
+							if (action != null) {
+								try {
+									toRedraw.add(action.call());
+								} catch (Exception exc) {
+								}
+							}
+							break;
 						}
 					}
 				}
 
+				for (int b = 0; b < 32 - numberOfLeadingZeros(state.mouse.buttons); b++) {
+					int btn = (int) pow(2, b);
+					if ((state.mouse.buttons & btn) > 0) {
+						SortedMap<MouseCombination, Integer> mcs = mouseCombinations.get(btn);
+						for (MouseCombination mc : mcs.keySet()) {
+							if ((mc.modifiers & modifiers) == modifiers) {
+								Integer actionCode = mcs.get(mc);
+								Callable<Rectangle> action = actions.get(actionCode);
+								if (action != null) {
+									try {
+										toRedraw.add(action.call());
+									} catch (Exception exc) {
+									}
+								}
+								break;
+							}
+						}
+					}
+
+				}
+
 				toRedraw.add(new Rectangle(mousex * tileSize, mousey * tileSize, tileSize, tileSize));
 
-				Point position = input.getMousePointer().position;
+				Point position = state.mouse.position;
 				mousex = position.x / tileSize;
 				mousey = position.y / tileSize;
 			}
